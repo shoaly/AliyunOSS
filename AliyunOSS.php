@@ -35,17 +35,23 @@ class AliyunOSS {
     return $this;
   }
 
-  public function uploadFile($key, $file)
+  //  这里有问题!!!!!, 这个地方我修改过代码, 所以从服务器上更新下来的会有问题
+  public function uploadFile($key, $file,$content_type = "application/octst-stream")
   {
-    $handle = fopen($file, 'r');
-    $value = $this->ossClient->putObject(array(
+    $file_content =  fopen($file, 'rb');
+    $result = $this->ossClient->putObject(array(
         'Bucket' => $this->bucket,
         'Key' => $key,
-        'Content' => $handle,
+        'Content' =>$file_content,
+        'ContentType' =>$content_type,
         'ContentLength' => filesize($file)
+        
     ));
-    fclose($handle);
-    return $value;
+
+    fclose($file_content);
+    
+    return $result;
+
   }
 
   public function uploadContent($key, $content)
@@ -56,6 +62,14 @@ class AliyunOSS {
         'Content' => $content,
         'ContentLength' => strlen($content)
     ));
+  }
+
+  public function getObject($key){
+    return $this->ossClient->getObject([
+        'Bucket' => $this->bucket,
+        'Key' => $key,
+
+      ]);
   }
 
   public function getUrl($key, $expire_time)
@@ -72,15 +86,28 @@ class AliyunOSS {
     return $this->ossClient->createBucket(['Bucket' => $bucketName]);
   }
 
-  public function getAllObjectKey($bucketName)
+
+  public function getAllObjectKey($bucketName,$path,$maxkeys)
   {
-    $objectListing = $this->ossClient->listObjects(array(
+    $config = array(
       'Bucket' => $bucketName,
-    ));
+      'MaxKeys' => $maxkeys,
+    );
+
+    if($path){
+      $config['Prefix'] = $path;
+    }
+
+    $objectListing = $this->ossClient->listObjects($config);
 
     $objectKeys = [];
     foreach ($objectListing->getObjectSummarys() as $objectSummary) {
-      $objectKeys[] = $objectSummary->getKey();
+      $url = $objectSummary->getKey();
+
+      $objectKeys[] = [
+        'url' =>  $url,
+        'lastModified' =>  $objectSummary->getLastModified(),
+      ];
     }
     return $objectKeys;
   }
